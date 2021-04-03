@@ -62,14 +62,16 @@ class VisualizationDemo(object):
         """
         vis_output = None
         predictions = self.predictor(image)
-            mask= outputs['instances'].get('pred_masks')
+        mask= predictions['instances'].get('pred_masks')
         mask= mask.to('cpu')
+        mask=mask.numpy()
         num, h, w= mask.shape
+        print(num,h,w)
         bin_mask= np.zeros((h, w))
     
         for m in mask:
             bin_mask+= m
-        return bin_mask
+        return predictions, bin_mask
 
         """
         # Convert image from OpenCV BGR format to Matplotlib RGB format.
