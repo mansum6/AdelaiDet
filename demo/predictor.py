@@ -38,7 +38,18 @@ class VisualizationDemo(object):
             self.predictor = AsyncPredictor(cfg, num_gpus=num_gpu)
         else:
             self.predictor = DefaultPredictor(cfg)
-
+            
+    # Convert Bezier to points
+    def bez_to_points(bez):        
+        u = np.linspace(0, 1, 20)
+        bezier = bezier.reshape(2, 4, 2).transpose(0, 2, 1).reshape(4, 4)
+        points = np.outer((1 - u) ** 3, bezier[:, 0]) \
+            + np.outer(3 * u * ((1 - u) ** 2), bezier[:, 1]) \
+            + np.outer(3 * (u ** 2) * (1 - u), bezier[:, 2]) \
+            + np.outer(u ** 3, bezier[:, 3])
+        points = np.concatenate((points[:, :2], points[:, 2:]), axis=0)
+        return points
+    
     def run_on_image(self, image):
         """
         Args:
@@ -51,6 +62,12 @@ class VisualizationDemo(object):
         """
         vis_output = None
         predictions = self.predictor(image)
+        instances = predictions["instances"].to(self.cpu_device)
+        beziers = instances.beziers.numpy()
+        polygonArray=[]
+        for bezier in beziers:
+            poly=self.bez_to_points(bez)
+            polygonArray.append(poly)
         """
         # Convert image from OpenCV BGR format to Matplotlib RGB format.
         image = image[:, :, ::-1]
@@ -76,7 +93,7 @@ class VisualizationDemo(object):
         
         return predictions, vis_output
         """
-        return predictions
+        return polygonArray
 
     def _frame_from_video(self, video):
         while video.isOpened():
