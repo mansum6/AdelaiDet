@@ -62,12 +62,15 @@ class VisualizationDemo(object):
         """
         vis_output = None
         predictions = self.predictor(image)
-        instances = predictions["instances"].to(self.cpu_device)
-        beziers = instances.beziers.numpy()
-        polygonArray=[]
-        for bezier in beziers:
-            poly=self.bez_to_points(bez)
-            polygonArray.append(poly)
+            mask= outputs['instances'].get('pred_masks')
+        mask= mask.to('cpu')
+        num, h, w= mask.shape
+        bin_mask= np.zeros((h, w))
+    
+        for m in mask:
+            bin_mask+= m
+        return bin_mask
+
         """
         # Convert image from OpenCV BGR format to Matplotlib RGB format.
         image = image[:, :, ::-1]
@@ -93,7 +96,6 @@ class VisualizationDemo(object):
         
         return predictions, vis_output
         """
-        return polygonArray
 
     def _frame_from_video(self, video):
         while video.isOpened():
