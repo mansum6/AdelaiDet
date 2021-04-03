@@ -84,7 +84,7 @@ if __name__ == "__main__":
             # use PIL, to be consistent with evaluation
             img = read_image(path, format="BGR")
             start_time = time.time()
-            predictions = demo.run_on_image(img)
+            predictions, visualized_output = demo.run_on_image(img)
             logger.info(
                 "{}: detected {} instances in {:.2f}s".format(
                     path, len(predictions["instances"]), time.time() - start_time
@@ -94,12 +94,11 @@ if __name__ == "__main__":
             if args.output:
                 if os.path.isdir(args.output):
                     assert os.path.isdir(args.output), args.output
-                    out_filename = os.path.join(args.output, os.path.splitext(path)[0]+".json")
+                    out_filename = os.path.join(args.output, os.path.basename(path))
                 else:
                     assert len(args.input) == 1, "Please specify a directory with args.output"
                     out_filename = args.output
-                print(predictions, file=open(out_filename, 'w'))
-                #predictions.save(out_filename)
+                visualized_output.save(out_filename)
             else:
                 cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
                 if cv2.waitKey(0) == 27:
