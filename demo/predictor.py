@@ -67,7 +67,7 @@ class VisualizationDemo(object):
         mask=mask.numpy()
         num, h, w= mask.shape
         print(num,h,w)
-        bin_mask= np.zeros((h, w))
+        bin_mask= np.ones((h, w))
     
         for m in mask:
             bin_mask+= m
