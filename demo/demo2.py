@@ -51,20 +51,6 @@ if __name__ == "__main__":
     predictor: DefaultPredictor = DefaultPredictor(cfg)
 
 
-    preds = outputs["instances"].pred_classes.to("cpu").tolist()
-    # this will get the names of our classes in dataset..
-    labels_ = MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes
-
-    # Wanting to only extract chair and person
-    retain_ = []
-    # retain_.append(labels_.index("chair"))
-    retain_.append(labels_.index("person"))
-
-    # retaining only retain_ from preds
-    my_masks = [x for x in preds if x in retain_]
-    my_masks = torch.tensor(my_masks)
-
-    outputs["instances].pred_classes = my_masks 
 
 
 
@@ -73,6 +59,27 @@ if __name__ == "__main__":
         img: np.ndarray = cv2.imread(image_file)
 
         output: Instances = predictor(img)["instances"]
+        predictions = predictor(image)
+        
+        ##############
+        preds = outputs["instances"].pred_classes.to("cpu").tolist()
+        # this will get the names of our classes in dataset..
+        labels_ = MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes
+
+        # Wanting to only extract chair and person
+        retain_ = []
+        # retain_.append(labels_.index("chair"))
+        retain_.append(labels_.index("person"))
+
+        # retaining only retain_ from preds
+        my_masks = [x for x in preds if x in retain_]
+        my_masks = torch.tensor(my_masks)
+
+        outputs["instances].pred_classes = my_masks 
+        ###############
+
+            
+        
         v = Visualizer(img[:, :, ::-1],
                        MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
                        scale=1.0)
