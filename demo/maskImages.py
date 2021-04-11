@@ -1,13 +1,21 @@
 from detectron2.evaluation import COCOEvaluator, inference_on_dataset
 from detectron2.data import build_detection_test_loader
 from detectron2.data.detection_utils import read_image
-
+from detectron2.engine.defaults import DefaultPredictor
+from detectron2.data import MetadataCatalog
 from adet.config import get_cfg
+from detectron2.utils.visualizer import ColorMode, Visualizer
 
 from matplotlib.image import imread
 import scipy.misc
 from PIL import Image  
 import numpy as np
+import argparse
+import os
+import tqdm
+import torch
+
+import multiprocessing as mp
 
 
 def setup_cfg(args):
@@ -78,13 +86,13 @@ def cropper(org_image_path, mask_array, out_file_name):
 
     
 if __name__ == "__main__":
-    mp.set_start_method("spawn", force=True)
+    #mp.set_start_method("spawn", force=True)
     args = get_parser().parse_args()
 
 
     cfg = setup_cfg(args)
 
-    demo = VisualizationDemo(cfg)
+    #demo = VisualizationDemo(cfg)
 
     if args.input:
         if os.path.isdir(args.input[0]):
@@ -95,7 +103,7 @@ if __name__ == "__main__":
         for path in tqdm.tqdm(args.input, disable=not args.output):
             # use PIL, to be consistent with evaluation
             im = read_image(path, format="BGR")
-              *******  
+            #*******  
             
             # Inference with a keypoint detection model
             predictor = DefaultPredictor(cfg)
@@ -115,10 +123,10 @@ if __name__ == "__main__":
             my_masks = torch.tensor(my_masks)
             outputs["instances"].pred_classes = my_masks 
 
-            print(outputs["instances"].pred_masks.to("cpu").numpy())
+            #print(outputs["instances"].pred_masks.to("cpu").numpy())
             v = Visualizer(im[:,:,::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
             out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-            cv2_imshow(out.get_image()[:, :, ::-1])
+            #cv2_imshow(out.get_image()[:, :, ::-1])
 
 
 
@@ -126,8 +134,19 @@ if __name__ == "__main__":
 
             mask_array = outputs["instances"].pred_masks.to("cpu").numpy()
             #print(outputs["instances"].pred_keypoints.to("cpu").numpy().shape)
-            print(mask_array.shape)
+            #print(mask_array.shape)
 
-            print(mask_array)
+            #print(mask_array)
             #cv2.imwrite('mask.png', mask_array)
-            cropper('1.png', mask_array, 'mask.png')
+            #cropper('1.png', mask_array)
+            if args.output:
+                if os.path.isdir(args.output):
+                    assert os.path.isdir(args.output), args.output
+                    out_filename = os.path.join(args.output, os.path.basename(path))
+                else:
+                    assert len(args.input) == 1, "Please specify a directory with args.output"
+                    out_filename = args.output
+                cropper(path, mask_array).save(out_filename)
+            else:
+                cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
+                if cv2.waitKey(0) == 27:
