@@ -63,7 +63,7 @@ def get_parser():
         nargs=argparse.REMAINDER,
     )
     return parser
-def cropper(org_image_path, mask_array, out_file_name):
+def cropper(org_image_path, mask_array):
     num_instances = mask_array.shape[0]
     mask_array = np.moveaxis(mask_array, 0, -1)
     mask_array_instance = []
@@ -146,7 +146,8 @@ if __name__ == "__main__":
                 else:
                     assert len(args.input) == 1, "Please specify a directory with args.output"
                     out_filename = args.output
-                cropper(path, mask_array).save(out_filename)
+                im=cropper(path, mask_array)
+                im.save(out_filename)
             else:
                 cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
-                if cv2.waitKey(0) == 27:
+                
