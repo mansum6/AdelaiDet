@@ -73,16 +73,18 @@ def cropper(org_image_path, mask_array):
         mask_array_instance.append(mask_array[:, :, i:(i+1)])
         #output = np.where(mask_array_instance[i] == False, 0, (np.where(mask_array_instance[i] == True, 255, img)))
         output=np.where(mask_array_instance[i] == True, 255,output)
-    print(output[:,:,0].shape)
-    print(img.shape)
+    #print(output[:,:,0].shape)
+    
+    #print(img.shape)
     #im=Image.fromarray(np.where((output == 255, 0,img)))
     im = Image.fromarray(output[:,:,0])
     
     if im.mode != 'RGBA':
       im = im.convert('RGBA')
     img = Image.open(org_image_path)
-    im = Image.composite(img, im, im) 
-    return im
+    imcom = Image.composite(img, im, im)
+    rgb_im = imcom.convert('RGB') 
+    return rgb_im
 
     
 if __name__ == "__main__":
@@ -117,6 +119,7 @@ if __name__ == "__main__":
             retain_ = []
             # retain_.append(labels_.index("chair"))
             retain_.append(labels_.index("person"))
+            
 
             # retaining only retain_ from preds
             my_masks = [x for x in preds if x in retain_]
@@ -124,8 +127,8 @@ if __name__ == "__main__":
             outputs["instances"].pred_classes = my_masks 
 
             #print(outputs["instances"].pred_masks.to("cpu").numpy())
-            v = Visualizer(im[:,:,::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
-            out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
+            #v = Visualizer(im[:,:,::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
+            #out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
             #cv2_imshow(out.get_image()[:, :, ::-1])
 
 
@@ -134,7 +137,7 @@ if __name__ == "__main__":
 
             mask_array = outputs["instances"].pred_masks.to("cpu").numpy()
             #print(outputs["instances"].pred_keypoints.to("cpu").numpy().shape)
-            #print(mask_array.shape)
+            print(mask_array.shape)
 
             #print(mask_array)
             #cv2.imwrite('mask.png', mask_array)
@@ -147,6 +150,7 @@ if __name__ == "__main__":
                     assert len(args.input) == 1, "Please specify a directory with args.output"
                     out_filename = args.output
                 im=cropper(path, mask_array)
+                print("Saving")
                 im.save(out_filename)
             else:
                 cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
