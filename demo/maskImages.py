@@ -14,6 +14,7 @@ import argparse
 import os
 import tqdm
 import torch
+import cv2
 
 import multiprocessing as mp
 
@@ -77,13 +78,19 @@ def cropper(org_image_path, mask_array):
     
     #print(img.shape)
     #im=Image.fromarray(np.where((output == 255, 0,img)))
-    im = Image.fromarray(output[:,:,0])
+    im = Image.fromarray(output[:,:,0].astype(np.uint8))
+    imgo = cv2.imread(org_image_path)
+    masko=output.astype(np.uint8)
+    new_image=cv2.bitwise_and(imgo, imgo, mask = masko)
+    cv2.imwrite('color_img.jpg', new_image)
     
     if im.mode != 'RGBA':
       im = im.convert('RGBA')
     img = Image.open(org_image_path)
     imcom = Image.composite(img, im, im)
+    imcom.save("/content/output/masks/1.png")
     rgb_im = imcom.convert('RGB') 
+    
     return rgb_im
 
     
