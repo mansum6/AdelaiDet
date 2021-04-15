@@ -15,6 +15,7 @@ import os
 import tqdm
 import torch
 import cv2
+from shutil import copyfile
 
 import multiprocessing as mp
 
@@ -45,6 +46,7 @@ def get_parser():
     parser.add_argument("--webcam", action="store_true", help="Take inputs from webcam.")
     parser.add_argument("--video-input", help="Path to video file.")
     parser.add_argument("--input", nargs="+", help="A list of space separated input images")
+
     parser.add_argument(
         "--output",
         help="A file or directory to save output visualizations. "
@@ -64,6 +66,21 @@ def get_parser():
         nargs=argparse.REMAINDER,
     )
     return parser
+def getSubImage(rect, src):
+    # Get center, size, and angle from rect
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
+    width = int(rect[1][0])
+    height = int(rect[1][1])
+
+    src_pts = box.astype("float32")
+    dst_pts = np.array([[0, height-1],
+                        [0, 0],
+                        [width-1, 0],
+                        [width-1, height-1]], dtype="float32")
+    M = cv2.getPerspectiveTransform(src_pts, dst_pts)
+    return cv2.warpPerspective(src, M, (width, height))
+    
 def cropper(org_image_path, mask_array):
     num_instances = mask_array.shape[0]
     mask_array = np.moveaxis(mask_array, 0, -1)
@@ -78,20 +95,32 @@ def cropper(org_image_path, mask_array):
     
     #print(img.shape)
     #im=Image.fromarray(np.where((output == 255, 0,img)))
-    im = Image.fromarray(output[:,:,0].astype(np.uint8))
+    #im = Image.fromarray(output[:,:,0].astype(np.uint8))
     imgo = cv2.imread(org_image_path)
     masko=output.astype(np.uint8)
-    new_image=cv2.bitwise_and(imgo, imgo, mask = masko)
-    cv2.imwrite('color_img.jpg', new_image)
+    mask_out=cv2.subtract(masko,imgo)
+    mask_out=cv2.subtract(masko,mask_out)
+    gray = cv2.cvtColor(masko, cv2.COLOR_BGR2GRAY)
+    # find contours / rectangle
+    contours = cv2.findContours(gray,cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
+    c = max(contours, key = cv2.contourArea)
+    rect = cv2.minAreaRect(c)
+
+    # crop
+    img_cropped = getSubImage(rect, mask_out)
+    #cv2.imwrite('color_img.jpg', img_cropped)
+    #new_image=cv2.bitwise_and(imgo, imgo, mask = masko)
+    '''
+    cv2.imwrite('color_img.jpg', mask_out)
     
     if im.mode != 'RGBA':
       im = im.convert('RGBA')
     img = Image.open(org_image_path)
     imcom = Image.composite(img, im, im)
-    imcom.save("/content/output/masks/1.png")
-    rgb_im = imcom.convert('RGB') 
+    imcom.save("./output/masks/1.png")
+    rgb_im = imcom.convert('RGB') '''
     
-    return rgb_im
+    return img_cropped
 
     
 if __name__ == "__main__":
@@ -111,54 +140,67 @@ if __name__ == "__main__":
             assert args.input, "The input path(s) was not found"
         for path in tqdm.tqdm(args.input, disable=not args.output):
             # use PIL, to be consistent with evaluation
-            im = read_image(path, format="BGR")
-            #*******  
-            
-            # Inference with a keypoint detection model
-            predictor = DefaultPredictor(cfg)
+            file_name = os.path.basename(path)
+            location = os.path.dirname(path)
+            try:
+                print(path)
+                im = read_image(path, format="BGR")
+                #*******  
+                
+                # Inference with a keypoint detection model
+                predictor = DefaultPredictor(cfg)
 
-            outputs = predictor(im)
-            preds = outputs["instances"].pred_classes.to("cpu").tolist()
-            # this will get the names of our classes in dataset..
-            labels_ = MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes
+                outputs = predictor(im)
+                preds = outputs["instances"].pred_classes.to("cpu").tolist()
+                # this will get the names of our classes in dataset..
+                labels_ = MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes
 
-            # Wanting to only extract chair and person
-            retain_ = []
-            # retain_.append(labels_.index("chair"))
-            retain_.append(labels_.index("person"))
-            
+                # Wanting to only extract chair and person
+                retain_ = []
+                # retain_.append(labels_.index("chair"))
+                retain_.append(labels_.index("person"))
+                
 
-            # retaining only retain_ from preds
-            my_masks = [x for x in preds if x in retain_]
-            my_masks = torch.tensor(my_masks)
-            outputs["instances"].pred_classes = my_masks 
+                # retaining only retain_ from preds
+                my_masks = [x for x in preds if x in retain_]
+                my_masks = torch.tensor(my_masks)
+                
+                
+                outputs["instances"].pred_classes = my_masks 
 
-            #print(outputs["instances"].pred_masks.to("cpu").numpy())
-            #v = Visualizer(im[:,:,::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
-            #out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-            #cv2_imshow(out.get_image()[:, :, ::-1])
+                #print(outputs["instances"].pred_masks.to("cpu").numpy())
+                #v = Visualizer(im[:,:,::-1], MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), scale=1.2)
+                #out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
+                #cv2_imshow(out.get_image()[:, :, ::-1])
 
 
 
 
+                try:
+                    mask_array = outputs["instances"].pred_masks.to("cpu").numpy()
+                    #print(outputs["instances"].pred_keypoints.to("cpu").numpy().shape)
+                    #print(mask_array.shape)
 
-            mask_array = outputs["instances"].pred_masks.to("cpu").numpy()
-            #print(outputs["instances"].pred_keypoints.to("cpu").numpy().shape)
-            print(mask_array.shape)
-
-            #print(mask_array)
-            #cv2.imwrite('mask.png', mask_array)
-            #cropper('1.png', mask_array)
-            if args.output:
-                if os.path.isdir(args.output):
-                    assert os.path.isdir(args.output), args.output
-                    out_filename = os.path.join(args.output, os.path.basename(path))
-                else:
-                    assert len(args.input) == 1, "Please specify a directory with args.output"
-                    out_filename = args.output
-                im=cropper(path, mask_array)
-                print("Saving")
-                im.save(out_filename)
-            else:
-                cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
+                    #print(mask_array)
+                    #cv2.imwrite('mask.png', mask_array)
+                    #cropper('1.png', mask_array)
+                    if args.output:
+                        if os.path.isdir(args.output):
+                            assert os.path.isdir(args.output), args.output
+                            out_filename = os.path.join(args.output, os.path.basename(path))
+                        else:
+                            assert len(args.input) == 1, "Please specify a directory with args.output"
+                            out_filename = args.output
+                        im=cropper(path, mask_array)
+                        print("Saving")
+                        cv2.imwrite(out_filename, im)
+                        #im.save(out_filename)
+                    else:
+                        cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
+                except AttributeError:
+                    print("No mask in this image")
+                    copyfile(path, args.output+'/noMask/'+file_name)
+            except AssertionError:
+                print("No person in this file")
+                copyfile(path, args.output+'/noPerson/'+file_name)
                 
